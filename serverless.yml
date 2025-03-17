@@ -1,0 +1,97 @@
+service: restapi-test
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  memorySize: 256
+  timeout: 10
+  iamRoleStatements:
+    - Effect: Allow
+      Action:        
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+      Resource:
+        - !GetAtt Cache.Arn
+        - !GetAtt Log.Arn
+        - !Sub "${Cache.Arn}/index/IDCharacterIndex" 
+        - !Sub "${Log.Arn}/index/IDCharacterIndex" 
+
+package:
+  individually: true 
+
+functions:
+  fusionados:
+    handler: src/controllers/logController.fusionados
+    events:
+      - httpApi: GET /fusionados/{id}
+          
+  almacenar:
+    handler: src/controllers/logController.almacenar
+    events:
+      - httpApi: POST /almacenar
+
+  historial:
+    handler: src/controllers/logController.historial
+    events:
+      - httpApi: GET /historial
+          
+resources:
+  Resources:
+    Cache:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.cacheTableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: id_character
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+
+        GlobalSecondaryIndexes:
+          - IndexName: IDCharacterIndex
+            KeySchema:
+              - AttributeName: id_character
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+          
+    Log:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.logTableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: id_character
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+            
+        GlobalSecondaryIndexes:
+          - IndexName: IDCharacterIndex
+            KeySchema:
+              - AttributeName: id_character
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+custom:
+  cacheTableName: Cache
+  logTableName: Log
+
+plugins:
+  - serverless-offline
+  - serverless-plugin-typescript
