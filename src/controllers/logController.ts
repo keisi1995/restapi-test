@@ -1,9 +1,12 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import * as serviceLog from "../services/log.service";
-import { response, errorResponse } from "../utils/response"
+import { response, errorResponse } from "../utils/response";
+import { authMiddleware } from "../middleware/authMiddleware";
 
 export const fusionados: APIGatewayProxyHandler = async (event) => {  
   try {
+    authMiddleware(event);
+   
     const { id: characterId } = event.pathParameters || {};
     if (!characterId) {
       return { statusCode: 400, body: JSON.stringify({ message: 'Character ID is required' }) };
@@ -19,9 +22,8 @@ export const fusionados: APIGatewayProxyHandler = async (event) => {
 
 export const almacenar: APIGatewayProxyHandler = async (event) => {
   try {    
-    if (!event.body) {
-      throw new Error("No hay data para registrar")
-    }
+    authMiddleware(event);
+    if (!event.body) { throw new Error("No hay data para registrar") }
 
     const data = JSON.parse(event.body);
     const character = await serviceLog.register(data);
@@ -32,8 +34,10 @@ export const almacenar: APIGatewayProxyHandler = async (event) => {
   }
 };
 
-export const historial: APIGatewayProxyHandler = async () => {
+export const historial: APIGatewayProxyHandler = async (event) => {
   try {
+    authMiddleware(event);
+
     const logs = await serviceLog.getAll();
     
     return response(200, logs);

@@ -8,7 +8,7 @@ provider:
   timeout: 10
   iamRoleStatements:
     - Effect: Allow
-      Action:        
+      Action:
         - dynamodb:Query
         - dynamodb:Scan
         - dynamodb:GetItem
@@ -16,11 +16,13 @@ provider:
       Resource:
         - !GetAtt Cache.Arn
         - !GetAtt Log.Arn
-        - !Sub "${Cache.Arn}/index/IDCharacterIndex" 
-        - !Sub "${Log.Arn}/index/IDCharacterIndex" 
+        - !GetAtt User.Arn
+        - !Sub "${Cache.Arn}/index/IDCharacterIndex"
+        - !Sub "${Log.Arn}/index/IDCharacterIndex"
+        - !Sub "${User.Arn}/index/EmailUserIndex"
 
 package:
-  individually: true 
+  individually: true
 
 functions:
   fusionados:
@@ -37,7 +39,17 @@ functions:
     handler: src/controllers/logController.historial
     events:
       - httpApi: GET /historial
-          
+
+  registerUser:
+    handler: src/controllers/authController.register
+    events:
+      - httpApi: POST /account/register
+
+  loginUser:
+    handler: src/controllers/authController.login
+    events:
+      - httpApi: POST /account/login
+  
 resources:
   Resources:
     Cache:
@@ -88,9 +100,31 @@ resources:
             Projection:
               ProjectionType: ALL
 
+    User:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.UserTableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: EmailUserIndex
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
 custom:
   cacheTableName: Cache
   logTableName: Log
+  UserTableName: User
 
 plugins:
   - serverless-offline
